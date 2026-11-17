@@ -21,6 +21,56 @@ We aim to respond within **48 hours** and issue a patch within **7 days** for cr
 
 ## Security Patch Log
 
+### v2.3.0 — 2026-11-17
+
+**Weekly automated security review**
+
+#### Dependency status note — Next.js 14.2.x is End of Life
+
+Vercel confirmed on 2026-06-02 (GitHub Discussion #93868) that **Next.js 14.x is end-of-life** and no security fixes will be backported. The latest maintained releases are 15.5.29 (Maintenance LTS) and 16.4.5 (Active LTS). A planned migration to Next.js 15.x (or 16.x) is required; this is tracked as a future major upgrade since 14→15 involves breaking API changes (async params/searchParams, React 19 peer requirement) that need regression testing.
+
+#### CVEs patched — code-level mitigation applied
+
+| CVE | Severity | Package | Description | Mitigation applied |
+|-----|----------|---------|-------------|-------------------|
+| CVE-2026-96889 / GHSA-2464-fhr4-w9xw | Critical (CVSS 9.5) | `next` → `sharp` | Unauthenticated RCE in Image Optimization API via specially crafted SVG image on glibc-based Linux — memory corruption in upstream `sharp` library | Added `"overrides": { "sharp": ">=0.35.5" }` to `package.json` — Vercel-documented workaround; proper fix requires upgrade to `next@15.5.28+` |
+
+#### CVEs found and ruled out as not applicable
+
+| CVE | Severity | Reason not applicable |
+|-----|----------|-----------------------|
+| CVE-2026-75604 | Critical (CVSS 9.5) | Windows path-traversal incremental cache RCE — explicitly Linux-safe; server runs on glibc Linux |
+| GHSA-673q-mjm6-r5xr | Critical | App Router + Cache Components typed-array RCE — Pages Router only, Cache Components not in use |
+| GHSA-2xp9-vwfh-vxw4 | Critical (CVSS 9.5) | AVIF Image Optimization RCE — fixed in `next@15.5.24`; mitigated here by no `images.remotePatterns` configured and no `next/image` usage in codebase |
+| GHSA-7qx7-33qx-rqx2 | Medium | SVG rejection bypass in Image Optimization — no RCE demonstrated; mitigated by no external image sources configured and no `next/image` usage; fix requires `next@15.5.28+` |
+| CVE-2026-44578 | High (CVSS 8.6) | SSRF via WebSocket upgrades — requires WebSocket proxy rewrites; `rewrites()` returns `{}` (no rules) in this app |
+| CVE-2026-64645 | High | Rewrites SSRF — requires attacker-controlled rewrite destination; `rewrites()` returns `{}` (no rules) |
+| CVE-2026-64649 | High | App Router Server Actions SSRF on custom servers — Pages Router only |
+| CVE-2026-94482 | High | App Router Server Actions — Pages Router only |
+| GHSA-p3m5-59mp-jv5r | High | App Router Server Actions DoS — Vercel advisory explicitly states Pages Router apps are not vulnerable |
+| CVE-2026-44573 | High | Pages Router i18n middleware bypass — project does not configure `i18n` routing |
+| GHSA-mfr8-8qww-v76h | High | Cache Components cross-tenant cache disclosure — Cache Components / PPR not in use |
+| CVE-2026-64641 | High | App Router Server Actions DoS — Pages Router only |
+| CVE-2026-23864 / GHSA-h25m-26qc-wcjf | High | React Server Components DoS — affects `react-server-dom-webpack`/`parcel`/`turbopack`; Pages Router does not use RSC |
+| CVE-2026-44579 | High | Cache Components DoS (affects ≥15.0.0 only) — below our version range |
+| CVE-2026-44575 | High | App Router middleware bypass (affects ≥15.2.0 only) — below our version range |
+| CVE-2026-64647 / CVE-2026-64648 | Medium | Fetch body cache confusion — cache data-path only exercised by App Router data layer |
+| CVE-2026-64643 / CVE-2026-64646 | Medium | App Router Server Functions/Server Actions Edge — Pages Router only |
+| GHSA-f3mh-rxg3-f5g2 | Medium | Cookie exposure via `x-middleware-set-cookie` in Edge routes — all API routes use Node.js runtime, not Edge runtime |
+| GHSA-vc7v-qv4w-wrv8 / GHSA-rhh4-g77r-r9qj + others | Medium | Cache Components / PPR / `use cache` — not in use |
+| CVE-2026-44576 / CVE-2026-44582 / GHSA-8h8q-6873-q5fj / GHSA-q4gf-8mx6-v5v3 | Low–High | App Router RSC cache poisoning / RSC DoS — Pages Router only |
+| CVE-2026-27977 | Medium | Dev-mode HMR (≥16.0.1 only) — below our version range |
+| CVE-2026-34451 / CVE-2026-41686 (`@anthropic-ai/sdk`) | Medium | Affects SDK ≥0.79.0 only; requires `BetaLocalFilesystemMemoryTool` — our version is `^0.39.0` and we do not use that tool |
+
+#### Other dependencies — no new CVEs
+
+- **`helmet@^8.0.0`** — no published CVEs in 2026
+- **`zod@^3.24.4`** — CVE-2026-6991 affects v4 (4.3.0–4.3.6) only; v3 is not affected (intentional pin)
+- **`rate-limiter-flexible@^5.0.4`** — no published CVEs; latest is 11.5.0 (no security driver to upgrade)
+- **`react@^18.3.1` / `react-dom@^18.3.1`** — RSC DoS CVEs affect `react-server-dom-*` packages only; `react-dom` is not affected
+
+---
+
 ### v2.2.0 — 2026-10-29
 
 **Dependency upgrades — security patches**

@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 // Security patch history:
+//   2026-11-17 — CVE-2026-96889 (Critical CVSS 9.5): Image Optimization RCE on glibc Linux via SVG —
+//                mitigated by package.json "overrides": { "sharp": ">=0.35.5" }
+//                (proper fix requires upgrade to next@15.5.28+; full migration to 15.x planned — 14.2.x is EOL)
+//                GHSA-7qx7-33qx-rqx2 (Medium): SVG rejection bypass in Image Opt — mitigated by lack of
+//                remote image patterns; no fix without 15.5.28+ upgrade
 //   2026-10-29 — CVE-2025-29927 (CVSS 9.1): middleware auth bypass — next@14.2.35 + header block
 //                CVE-2025-67779 / CVE-2025-55184 (High): RSC DoS — next@14.2.35
 //                CVE-2025-55183 (Medium): RSC source code exposure — next@14.2.35
