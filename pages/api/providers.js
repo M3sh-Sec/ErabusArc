@@ -70,5 +70,9 @@ export default async function handler(req, res) {
     defaultModel: p.defaultModel,
   }));
 
-  return res.status(200).json({ providers, activeProvider: process.env.AI_PROVIDER || "anthropic" });
+  return res.status(200).json({
+    providers,
+    activeProvider: process.env.AI_PROVIDER || "anthropic",
+    activeScanEnabled: process.env.ACTIVE_SCAN_ENABLED === "true",
+  });
 }

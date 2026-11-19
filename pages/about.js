@@ -260,9 +260,9 @@ export default function AboutPage() {
               Security teams face a fragmented landscape. CVE databases, MITRE ATT&CK, SIEM alerts, and compliance spreadsheets live in separate tools. An analyst who finds a vulnerability must manually determine which threat actor exploits it, which kill chain phase it enables, whether it violates a FedRAMP control, and whether anyone is tracking the fix.
             </p>
             <p style={{ fontSize:"16px",color:"rgba(255,255,255,0.65)",lineHeight:1.8,marginBottom:"20px" }}>
-              EREBUS ARC solves this by combining four capabilities: <strong style={{ color:"#fff" }}>Vulnerability Intelligence</strong>, <strong style={{ color:"#fff" }}>Adversary TTP Profiling</strong>, <strong style={{ color:"#fff" }}>Compliance Mapping</strong>, and <strong style={{ color:"#fff" }}>Mitigation Tracking</strong> — all scoped to your company with full tenant isolation.
+              EREBUS ARC solves this by combining six capabilities: <strong style={{ color:"#fff" }}>Active Scanning</strong> (nmap + nuclei), <strong style={{ color:"#fff" }}>Vulnerability Intelligence</strong>, <strong style={{ color:"#fff" }}>Adversary TTP Profiling</strong>, <strong style={{ color:"#fff" }}>Compliance Mapping</strong>, <strong style={{ color:"#fff" }}>Mitigation Tracking</strong>, and a <strong style={{ color:"#fff" }}>Multi-Model AI Engine</strong> — all scoped to your company with full tenant isolation.
             </p>
-            <Callout type="tip">EREBUS ARC is powered by Claude (Anthropic's AI). The AI analyses your targets against its knowledge of CVE databases, threat actor behaviour, and compliance frameworks — returning structured analyst-grade intelligence in seconds.</Callout>
+            <Callout type="tip">EREBUS ARC supports multiple AI providers — Anthropic Claude, OpenAI GPT-4o, Google Gemini, Mistral AI, and local models via Ollama or LM Studio. When active scanning is enabled, nmap and nuclei probe the target first, feeding real-world findings to the AI for deeper, evidence-based analysis.</Callout>
           </NavAnchor>
 
           <div style={{ height:"60px" }} />
@@ -293,7 +293,7 @@ export default function AboutPage() {
             <Step number="3" title="Configure environment variables">
               <Code block>cp .env.example .env.local</Code>
               Open <Code>.env.local</Code> and set at minimum:
-              <Code block>{`ANTHROPIC_API_KEY=sk-ant-your-key-here\nAUTH_SECRET=your-32-character-random-string-here`}</Code>
+              <Code block>{`# Choose your AI provider (default: anthropic)\nAI_PROVIDER=anthropic\nANTHROPIC_API_KEY=sk-ant-your-key-here\n\n# Or use another provider:\n# AI_PROVIDER=openai\n# OPENAI_API_KEY=sk-...\n# AI_PROVIDER=google\n# GOOGLE_API_KEY=AIza...\n# AI_PROVIDER=local   (Ollama / LM Studio)\n\n# Required for production\nAUTH_SECRET=your-32-character-random-string-here\n\n# Optional: enable active scanning (requires nmap + nuclei)\n# ACTIVE_SCAN_ENABLED=true`}</Code>
               Get your Anthropic API key at <a href="https://console.anthropic.com" target="_blank" rel="noreferrer">console.anthropic.com</a>. Generate AUTH_SECRET with: <Code>openssl rand -hex 32</Code>
             </Step>
             <Step number="4" title="Start the development server"><Code block>npm run dev</Code>Open <a href="http://localhost:3000">http://localhost:3000</a>.</Step>

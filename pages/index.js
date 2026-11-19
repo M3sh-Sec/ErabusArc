@@ -402,10 +402,61 @@ function MitrePanel({ data }) {
   );
 }
 
-function SurfacePanel({ data }) {
+function SurfacePanel({ data, activeScanMeta }) {
   const { attackSurface = {} } = data;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+
+      {/* Active scan results — shown when scan was run in active mode */}
+      {activeScanMeta && (activeScanMeta.nmapPorts?.length > 0 || activeScanMeta.nucleiFindings?.length > 0) && (
+        <div style={{ background: "rgba(255,159,10,0.05)", border: "1px solid rgba(255,159,10,0.2)",
+          borderRadius: "var(--radius)", padding: "18px" }}>
+          <SectionTitle icon="◉">Live Scan Results (nmap + nuclei)</SectionTitle>
+
+          {activeScanMeta.nmapPorts?.length > 0 && (
+            <div style={{ marginBottom: "14px" }}>
+              <Label>Open Ports Detected by nmap</Label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "6px" }}>
+                {activeScanMeta.nmapPorts.map((p, i) => (
+                  <div key={i} style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,159,10,0.2)",
+                    borderRadius: "5px", padding: "5px 10px", fontSize: "11px", fontFamily: "var(--font-mono)" }}>
+                    <span style={{ color: "rgba(255,159,10,0.9)", fontWeight: 700 }}>{p.port}/{p.proto}</span>
+                    <span style={{ color: "rgba(255,255,255,0.4)", margin: "0 5px" }}>·</span>
+                    <span style={{ color: "rgba(255,255,255,0.6)" }}>{p.service}</span>
+                    {p.version && <span style={{ color: "rgba(255,255,255,0.3)", marginLeft: "5px" }}>{p.version}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeScanMeta.nucleiFindings?.length > 0 && (
+            <div>
+              <Label>Nuclei Template Matches</Label>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "6px" }}>
+                {activeScanMeta.nucleiFindings.map((f, i) => (
+                  <div key={i} style={{ display: "flex", gap: "10px", alignItems: "flex-start",
+                    background: "rgba(0,0,0,0.25)", borderRadius: "5px", padding: "8px 12px" }}>
+                    <Chip label={f.severity || "INFO"} {...(SEV[f.severity] || SEV.INFO)} small />
+                    <div>
+                      <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>{f.name}</div>
+                      {f.cve && <div style={{ fontSize: "10px", color: "var(--color-accent)", fontFamily: "var(--font-mono)", marginTop: "2px" }}>{f.cve}</div>}
+                      {f.matched && <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.25)", marginTop: "2px" }}>{f.matched}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeScanMeta.nmapSkipped && activeScanMeta.nucleiSkipped && (
+            <p style={{ margin: 0, fontSize: "12px", color: "rgba(255,255,255,0.3)" }}>
+              Active scan tools not available on this host — results are AI-only.
+            </p>
+          )}
+        </div>
+      )}
+
       {[
         { title: "Attack Vectors",            items: attackSurface.vectors,         icon: "◉", color: "var(--color-high)" },
         { title: "Exposed Ports / Services",  items: attackSurface.exposedPorts,    icon: "◈", color: "var(--color-medium)" },
@@ -1361,6 +1412,11 @@ export default function ErebusArcPage() {
   const [selectedModel, setSelectedModel]   = useState("");
   const [showModelPicker, setShowModelPicker] = useState(false);
 
+  // Active scan mode
+  const [activeScanEnabled, setActiveScanEnabled] = useState(false);
+  const [scanMode, setScanMode]                   = useState("passive"); // "passive" | "active"
+  const [activeScanMeta, setActiveScanMeta]       = useState(null);
+
   // Boot: check auth and CSRF
   useEffect(() => {
     Promise.all([
@@ -1391,6 +1447,7 @@ export default function ErebusArcPage() {
         if (d?.providers) {
           setProviders(d.providers);
           setSelectedProvider(d.activeProvider || "anthropic");
+          setActiveScanEnabled(d.activeScanEnabled === true);
         }
       })
       .catch(() => {});
@@ -1421,7 +1478,8 @@ export default function ErebusArcPage() {
       if (selectedProvider && selectedProvider !== "anthropic") scanBody.provider = selectedProvider;
       if (selectedModel) scanBody.model = selectedModel;
 
-      const res = await fetch("/api/scan", {
+      const endpoint = scanMode === "active" ? "/api/scan/active" : "/api/scan";
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}) },
         body: JSON.stringify(scanBody),
@@ -1435,7 +1493,9 @@ export default function ErebusArcPage() {
       }
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Scan failed"); }
 
-      const { data } = await res.json();
+      const responseJson = await res.json();
+      const { data, activeScan: activeScanData } = responseJson;
+      if (activeScanData) setActiveScanMeta(activeScanData);
       setScanLog(p => [...p, "✓ Analysis complete — parsing intelligence report..."]);
       setLogDone(true);
       setTimeout(async () => { setResult(data); setActiveTab("overview"); await loadScans(); }, 500);
@@ -1583,6 +1643,22 @@ export default function ErebusArcPage() {
                     <button key={ex} onClick={() => setTarget(ex)} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "4px", padding: "3px 9px", color: "rgba(255,255,255,0.28)", fontSize: "10px", fontFamily: "var(--font-mono)", cursor: "pointer" }}>{ex}</button>
                   ))}
                   <div style={{ flex: 1 }} />
+                  {/* Scan Mode Toggle */}
+                  {activeScanEnabled && (
+                    <div style={{ display: "flex", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "5px", overflow: "hidden" }}>
+                      {[
+                        { id: "passive", label: "◈ Passive", title: "AI threat intelligence only" },
+                        { id: "active",  label: "◉ Active",  title: "nmap + nuclei + AI" },
+                      ].map(m => (
+                        <button key={m.id} onClick={() => setScanMode(m.id)} title={m.title} style={{
+                          padding: "4px 10px", fontSize: "10px", fontFamily: "var(--font-mono)",
+                          fontWeight: 700, letterSpacing: "0.04em", cursor: "pointer", border: "none",
+                          background: scanMode === m.id ? (m.id === "active" ? "rgba(255,159,10,0.18)" : "rgba(61,139,255,0.14)") : "transparent",
+                          color: scanMode === m.id ? (m.id === "active" ? "rgba(255,159,10,0.9)" : "var(--color-accent)") : "rgba(255,255,255,0.3)",
+                        }}>{m.label}</button>
+                      ))}
+                    </div>
+                  )}
                   {/* AI Model Selector */}
                   <button onClick={() => setShowModelPicker(p => !p)} style={{
                     display: "flex", alignItems: "center", gap: "5px",
@@ -1713,7 +1789,7 @@ export default function ErebusArcPage() {
                 {activeTab === "vulns"       && <VulnsPanel vulns={result.vulnerabilities} />}
                 {activeTab === "adversaries" && <AdversariesPanel data={result} />}
                 {activeTab === "mitre"       && <MitrePanel data={result} />}
-                {activeTab === "surface"     && <SurfacePanel data={result} />}
+                {activeTab === "surface"     && <SurfacePanel data={result} activeScanMeta={activeScanMeta} />}
                 {activeTab === "remediation" && <RemediationPanel data={result} />}
                 {activeTab === "report"      && <ReportPanel data={result} />}
               </div>
