@@ -1,5 +1,19 @@
 /** @type {import('next').NextConfig} */
 // Security patch history:
+//   2026-11-19 — Full CVE audit:
+//                CVE-2026-44573 (High, CVSS 7.5): Pages Router i18n auth bypass — NOT APPLICABLE
+//                  (requires i18n config; EREBUS ARC has no i18n configured)
+//                CVE-2026-75604 (Critical): AVIF Windows RCE — NOT APPLICABLE (Linux-only issue)
+//                CVE-2026-96889 (Critical): Image Opt RCE on glibc Linux via sharp/librsvg —
+//                  MITIGATED by package.json "overrides": { "sharp": ">=0.35.5" } (official workaround)
+//                  Full fix requires next@15.5.28+; 14.2.x EOL migration tracked separately
+//                July/Sep/Oct 2026 Next.js CVEs — all require App Router features (use cache, Server
+//                  Actions, metadata routes); EREBUS ARC uses Pages Router only — NOT APPLICABLE
+//                CVE-2026-34451 / CVE-2026-41686 (@anthropic-ai/sdk): affect BetaLocalFilesystemMemoryTool
+//                  only — NOT APPLICABLE (SDK used for API calls only, not agentic local tools)
+//                  Also requires sdk >=0.79.0; current spec ^0.39.0 is unaffected range
+//                scanner.js: TOCTOU fix — resolveBinaryPath() now used for both existence check and exec
+//                scanner.js: prompt injection sanitization added to formatScanResultsForAI()
 //   2026-11-17 — CVE-2026-96889 (Critical CVSS 9.5): Image Optimization RCE on glibc Linux via SVG —
 //                mitigated by package.json "overrides": { "sharp": ">=0.35.5" }
 //                (proper fix requires upgrade to next@15.5.28+; full migration to 15.x planned — 14.2.x is EOL)
