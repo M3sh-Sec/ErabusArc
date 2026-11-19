@@ -1355,6 +1355,12 @@ export default function ErebusArcPage() {
   const [rateLimitMsg, setRateLimitMsg] = useState(null);
   const logRef = useRef();
 
+  // AI Model selector state
+  const [providers, setProviders]           = useState([]);
+  const [selectedProvider, setSelectedProvider] = useState("anthropic");
+  const [selectedModel, setSelectedModel]   = useState("");
+  const [showModelPicker, setShowModelPicker] = useState(false);
+
   // Boot: check auth and CSRF
   useEffect(() => {
     Promise.all([
@@ -1375,6 +1381,20 @@ export default function ErebusArcPage() {
   }, []);
 
   useEffect(() => { if (authUser) loadScans(); }, [authUser, loadScans]);
+
+  // Load available providers once authenticated
+  useEffect(() => {
+    if (!authUser) return;
+    fetch("/api/providers")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.providers) {
+          setProviders(d.providers);
+          setSelectedProvider(d.activeProvider || "anthropic");
+        }
+      })
+      .catch(() => {});
+  }, [authUser]);
 
   useEffect(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, [scanLog]);
 
@@ -1397,10 +1417,14 @@ export default function ErebusArcPage() {
     }, 750);
 
     try {
+      const scanBody = { target: t };
+      if (selectedProvider && selectedProvider !== "anthropic") scanBody.provider = selectedProvider;
+      if (selectedModel) scanBody.model = selectedModel;
+
       const res = await fetch("/api/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}) },
-        body: JSON.stringify({ target: t }),
+        body: JSON.stringify(scanBody),
       });
       clearInterval(iv);
 
@@ -1558,7 +1582,91 @@ export default function ErebusArcPage() {
                   {EXAMPLES.map(ex => (
                     <button key={ex} onClick={() => setTarget(ex)} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "4px", padding: "3px 9px", color: "rgba(255,255,255,0.28)", fontSize: "10px", fontFamily: "var(--font-mono)", cursor: "pointer" }}>{ex}</button>
                   ))}
+                  <div style={{ flex: 1 }} />
+                  {/* AI Model Selector */}
+                  <button onClick={() => setShowModelPicker(p => !p)} style={{
+                    display: "flex", alignItems: "center", gap: "5px",
+                    background: showModelPicker ? "rgba(61,139,255,0.1)" : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${showModelPicker ? "rgba(61,139,255,0.3)" : "rgba(255,255,255,0.08)"}`,
+                    borderRadius: "5px", padding: "4px 10px", cursor: "pointer",
+                    color: showModelPicker ? "var(--color-accent)" : "rgba(255,255,255,0.3)",
+                    fontSize: "10px", fontFamily: "var(--font-mono)", letterSpacing: "0.05em",
+                  }}>
+                    <span>◎</span>
+                    <span>{providers.find(p => p.id === selectedProvider)?.label?.split(" ")[0] || "Claude"}</span>
+                    {selectedModel && <span style={{ color: "rgba(255,255,255,0.4)" }}>· {selectedModel.split("-").slice(0,2).join("-")}</span>}
+                    <span style={{ opacity: 0.5 }}>▾</span>
+                  </button>
                 </div>
+
+                {/* Model picker dropdown */}
+                {showModelPicker && providers.length > 0 && (
+                  <div style={{ marginTop: "12px", background: "rgba(0,0,0,0.5)", border: "1px solid rgba(61,139,255,0.15)", borderRadius: "8px", padding: "14px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                    <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.25)", letterSpacing: "0.1em", textTransform: "uppercase" }}>AI Provider & Model</div>
+
+                    {/* Provider selector */}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                      {providers.map(p => (
+                        <button key={p.id} onClick={() => { setSelectedProvider(p.id); setSelectedModel(""); }} style={{
+                          padding: "5px 12px", borderRadius: "5px", fontSize: "10px", fontWeight: 700,
+                          fontFamily: "var(--font-mono)", letterSpacing: "0.05em", cursor: p.configured ? "pointer" : "not-allowed",
+                          background: selectedProvider === p.id ? "rgba(61,139,255,0.14)" : "rgba(255,255,255,0.03)",
+                          border: `1px solid ${selectedProvider === p.id ? "rgba(61,139,255,0.35)" : "rgba(255,255,255,0.07)"}`,
+                          color: !p.configured ? "rgba(255,255,255,0.18)" : selectedProvider === p.id ? "var(--color-accent)" : "rgba(255,255,255,0.4)",
+                          position: "relative",
+                        }} title={!p.configured ? `${p.keyEnvVar || "API key"} not configured` : ""}>
+                          {p.label}
+                          {!p.configured && <span style={{ marginLeft: "5px", fontSize: "8px", color: "rgba(255,214,10,0.6)" }}>⚠</span>}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Model selector for chosen provider */}
+                    {(() => {
+                      const prov = providers.find(p => p.id === selectedProvider);
+                      if (!prov?.models?.length) return null;
+                      return (
+                        <div>
+                          <div style={{ fontSize: "9px", color: "rgba(255,255,255,0.2)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "6px" }}>Model</div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
+                            <button onClick={() => setSelectedModel("")} style={{
+                              padding: "4px 10px", borderRadius: "4px", fontSize: "10px",
+                              fontFamily: "var(--font-mono)", cursor: "pointer",
+                              background: !selectedModel ? "rgba(61,139,255,0.1)" : "rgba(255,255,255,0.02)",
+                              border: `1px solid ${!selectedModel ? "rgba(61,139,255,0.25)" : "rgba(255,255,255,0.06)"}`,
+                              color: !selectedModel ? "var(--color-accent)" : "rgba(255,255,255,0.3)",
+                            }}>Default</button>
+                            {prov.models.map(m => (
+                              <button key={m.id} onClick={() => setSelectedModel(m.id)} style={{
+                                padding: "4px 10px", borderRadius: "4px", fontSize: "10px",
+                                fontFamily: "var(--font-mono)", cursor: "pointer",
+                                background: selectedModel === m.id ? "rgba(61,139,255,0.1)" : "rgba(255,255,255,0.02)",
+                                border: `1px solid ${selectedModel === m.id ? "rgba(61,139,255,0.25)" : "rgba(255,255,255,0.06)"}`,
+                                color: selectedModel === m.id ? "var(--color-accent)" : "rgba(255,255,255,0.3)",
+                              }}>{m.label}</button>
+                            ))}
+                          </div>
+                          {selectedProvider === "local" && (
+                            <div style={{ marginTop: "8px" }}>
+                              <input
+                                value={selectedModel}
+                                onChange={e => setSelectedModel(e.target.value)}
+                                placeholder="Or type a custom model name (e.g. llama3:70b)"
+                                style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "5px", padding: "7px 10px", color: "#fff", fontSize: "11px", fontFamily: "var(--font-mono)", outline: "none", boxSizing: "border-box" }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {selectedProvider === "local" && (
+                      <div style={{ fontSize: "10px", color: "rgba(255,214,10,0.5)", lineHeight: 1.5 }}>
+                        ⚠ Requires Ollama or LM Studio running locally. Set LOCAL_MODEL_URL in environment if not on localhost.
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

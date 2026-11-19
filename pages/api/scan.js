@@ -9,25 +9,19 @@
  * - companyId always from session — never trusted from client
  */
 
-import Anthropic from "@anthropic-ai/sdk";
 import { validateEnv } from "../../lib/env.js";
 import { applyRateLimit, getClientIp } from "../../lib/rateLimiter.js";
 import { validateScanRequest } from "../../lib/validation.js";
 import { validateCsrfToken } from "../../lib/csrf.js";
 import { requireAuth } from "../../lib/session.js";
 import { logger } from "../../lib/logger.js";
-import { EREBUS_ARC_SYSTEM_PROMPT, MODEL, MAX_TOKENS } from "../../lib/prompt.js";
+import { EREBUS_ARC_SYSTEM_PROMPT, MAX_TOKENS } from "../../lib/prompt.js";
+import { callAI } from "../../lib/aiProvider.js";
 import { validateAIResponse } from "../../lib/outputSchema.js";
 import { createScan, ROLES, bootstrap } from "../../lib/db.js";
 
 validateEnv();
 bootstrap();
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-  timeout: 60_000,
-  maxRetries: 1,
-});
 
 function parseAIText(rawText) {
   const cleaned = rawText.replace(/```(?:json)?[\s\S]*?```/g, m =>
@@ -76,18 +70,18 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Invalid request", details: validation.errors });
   }
 
-  const { target } = validation.data;
+  const { target, provider, model } = validation.data;
+  const activeProvider = provider || process.env.AI_PROVIDER || "anthropic";
   logger.scanRequest(ip, target);
 
   try {
-    const message = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
-      system: EREBUS_ARC_SYSTEM_PROMPT,
-      messages: [{ role: "user", content: `Perform a comprehensive vulnerability intelligence analysis for: ${target}\n\nReturn the complete JSON analysis only.` }],
+    const rawText = await callAI({
+      provider: activeProvider,
+      model: model || undefined,
+      maxTokens: MAX_TOKENS,
+      systemPrompt: EREBUS_ARC_SYSTEM_PROMPT,
+      userMessage: `Perform a comprehensive vulnerability intelligence analysis for: ${target}\n\nReturn the complete JSON analysis only.`,
     });
-
-    const rawText = message.content.filter(b => b.type === "text").map(b => b.text).join("");
 
     let parsed;
     try { parsed = parseAIText(rawText); }
@@ -111,7 +105,12 @@ export default async function handler(req, res) {
       success: true,
       data: validated.data,
       scanId: scan.id,
-      meta: { durationMs, scannedAt: new Date().toISOString() },
+      meta: {
+        durationMs,
+        scannedAt: new Date().toISOString(),
+        provider: activeProvider,
+        model: model || null,
+      },
     });
   } catch (err) {
     logger.scanError(ip, err);
